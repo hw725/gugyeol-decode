@@ -1,0 +1,213 @@
+---
+name: gugyeol-decode
+description: Decode Korean academic PDFs by recovering kugyeol characters (구결자, 厓·古·爲·匕·兯 abbreviations) and old hangul (옛한글, ᄒᆞ·ᇫ etc.) that PDF extractors render as broken (cid:N) marks. Covers PUA (한양 PUA) and standard Unicode CJK 합자 구결. Trigger on "구결 풀어줘", "옛한글 복원", "PUA 풀어줘", "한국 학술 PDF 깨짐", "(cid:N) 처리".
+license: MIT
+metadata:
+  category: documents
+  locale: ko-KR
+  phase: v1
+---
+
+# gugyeol-decode (구결자·옛한글 PDF 복원)
+
+## What this skill does
+
+한국 인문학·고전·국어학 PDF에는 **옛한글**(ᄒᆞ나니라의 ᄒᆞ에 해당하는 아래아 글자, ㅿ 반치음, ㅸ 순경음 비읍 등)과 **구결자**(口訣字 — 厓 → ㄱ-shape, 隱 → ㄴ-shape, 爲 → ㅎ-form 등 漢字를 약식화한 韓國式 토 표지)가 빈번히 등장한다. 이들은 표준 Unicode 부호점이 부여되지 않아 폰트마다 **PUA(Private Use Area, U+E000-F8FF)에 임의 매핑**되어 있다.
+
+`pdfplumber`/`pdftotext` 같은 일반 PDF 추출 도구는 PUA 글자를 `(cid:N)` 또는 빈칸으로 떨어뜨리고, 결과 텍스트를 그대로 위키·논문·DB에 옮기면 **원전과 단절된 데이터**가 된다.
+
+본 스킬은:
+
+1. PDF에서 모든 PUA 글자의 (codepoint, font, 위치, 컨텍스트)를 자동 추출
+2. 글자별 첫 등장 위치를 고해상도 PNG로 잘라 저장
+3. Claude(나)의 멀티모달 시각 판독 + 폰트 단서로 옛한글/구결자/기타 분류
+4. 사용자 검토 후 **PUA → modern hangul 정규화 매핑 테이블**(JSON) 생성
+5. 같은 폰트 PDF는 매핑 재사용, 점진적으로 폰트별 캐시 축적
+
+## When to use
+
+- "이 논문 PDF에서 옛한글이 깨져 나와"
+- "(cid:6) (cid:38) 같은 게 잔뜩 있어"
+- "임규직/박문호/윤근수 등 19세기 학자 논문 PDF 복원해줘"
+- "口訣字가 PDF에 나오는데 텍스트 추출이 안 돼"
+- "한국 고전 OCR 결과에 PUA 부호점 나옴"
+- 한국 인문학 PDF를 wiki/논문/DB에 인용하려는데 옛한글이 손실된 경우
+
+## When NOT to use
+
+- 일반 영문/현대 한글 PDF — 표준 Unicode면 충분
+- 스캔 이미지 OCR이 필요한 경우 — 본 스킬은 텍스트 레이어가 있는 PDF 대상. OCR은 별도 도구 (Naver Clova, Tesseract+옛한글 모델)
+- 漢文 자체의 異體字 변별 — 본 스킬은 한국 PUA에 한정
+
+## Prerequisites
+
+- Python 3.9+ + `PyMuPDF` (`pip install pymupdf`)
+- Claude Code 또는 멀티모달 LLM 접근 (시각 판독용 — Claude Code 이미지 읽기 기능으로 충분)
+- 출력 디렉터리 쓰기 권한
+
+## Inputs
+
+- 입력 PDF 경로 (텍스트 레이어 있는 PDF — 스캔 PDF는 사전 OCR 필요)
+- 출력 디렉터리 (기본: `<PDF경로>/_pua/`)
+- 기존 매핑 캐시 (선택, 동일 폰트 PDF 재사용)
+
+## Outputs
+
+- `<출력>/U<HEX>_p<페이지>_<폰트>.png` — PUA 글자별 컨텍스트 PNG
+- `<출력>/_contexts.txt` — 각 PUA의 등장 페이지·폰트·전후 라인
+- `<출력>/mapping.json` — 확정된 매핑 테이블
+- `<출력>/normalized.md` — 본문에 매핑 적용한 깨끗한 텍스트
+
+## 폰트 기반 1차 분류 휴리스틱
+
+확정된 시각 판독에 앞서, 폰트 이름으로 후보를 좁힌다.
+
+| 폰트 패턴 | 추정 글자 종류 | 비고 |
+|----------|--------------|------|
+| `TT70xx`, 한컴/한양 한글 본문 폰트 | **옛한글** (아래아·반치음·순경음 등) | 한글 본문 컨텍스트 |
+| `*명조`, `*신명조`, `Hancom 명조` 류 | **구결자** 또는 옛한글 引用 | 漢文 구결 설명·인용문 |
+| `*HCI-*` 라틴/숫자 폰트 | 페이지 번호·서지 — 무시 | |
+| `Arial`, `Times` | 일반 — 무시 | |
+
+font 이름이 mojibake(`*ÇÑ¾ç½Å¸íÁ¶`)로 나와도 패턴은 보존된다. CP949 → UTF-8 매핑으로 한글 폰트명 복원 가능 (예: `*ÇÑ¾ç½Å¸íÁ¶` → `*한양신명조`).
+
+## Workflow
+
+### 0. (1회 setup) 표준 매핑 캐시 구축 — **이게 정확도 핵심**
+
+본 스킬은 다음 외부 자료에 의존한다 (자세한 출처·라이선스는 `ATTRIBUTION.md`):
+
+#### 0a. hypua (옛한글 PUA → IPF Unicode jamo) ⭐⭐⭐
+
+**가장 중요**. `kiwiyou/hypua` (Unlicense, public domain) 5660건 매핑 테이블을 다운로드.
+
+```bash
+curl -L "https://raw.githubusercontent.com/kiwiyou/hypua/master/table" \
+  -o reference/hypua_table.csv
+```
+
+#### 0b. AKS 한국학중앙연구원 표준 매핑
+
+```bash
+python scripts/fetch_aks_gukyul.py    # 구결자 255 PUA × 104 음가
+python scripts/fetch_aks_oldhan.py    # 옛한글 5299 PUA × 23 카테고리
+```
+
+#### 0c. (선택) Unihan K source 한자 — 합자 구결자 후보 풀
+
+```bash
+python scripts/fetch_unihan_korean.py # K2~K6 한국 source 한자 10,919건
+```
+
+**우선순위 체계**:
+1. `hypua_table.csv` — 한양 PUA 옛한글 (압도적 정확도, 시각 판독 대체)
+2. `aks_gukyul_pua.json` — 구결자 PUA → 음가 (한국학중앙연구원 표준)
+3. `aks_oldhan_pua.json` — 옛한글 카테고리 (hypua 미수록 잔여분)
+4. `hapja_kugyeol.json` — 합자 구결자 (한국 한자 표준 + 학술 검증)
+5. `unihan_korean.json` — 후보 풀 (사용자 검증 후 hapja에 등록)
+6. 시각 판독 — 위 모두 못 잡는 경우만
+
+### 1. 추출 + 인덱싱 + AKS 자동 룩업
+
+```bash
+python scripts/extract_pua.py <PDF경로> [--out <디렉터리>]
+```
+
+내부적으로 PyMuPDF의 `page.get_text('dict')`로 글리프-수준 정보를 얻고, `0xE000 ≤ codepoint ≤ 0xF8FF`인 글자만 골라 `(codepoint, font)` 키별 첫 등장 위치를 저장한다. 같은 PUA 부호점이라도 폰트가 다르면 별개 글리프이므로 따로 다룬다.
+
+**AKS 캐시가 있으면 자동으로**:
+- `*명조` 등 구결자 폰트 → AKS 구결자 매핑 적용 (verified=true)
+- `TT70xx` 등 옛한글 폰트 → AKS 카테고리 매칭 (정확 자모는 시각 판독 필요)
+
+각 (codepoint, font)당 PNG 한 장 + 컨텍스트 라인 한 줄 + mapping_skeleton.json (자동 채워진 항목 + 빈 항목).
+
+### 2. 시각 판독 (Claude/사람)
+
+`_contexts.txt`를 읽고 폰트로 1차 분류 → PNG를 시각 판독:
+
+- **옛한글** 후보:
+  - ᄒᆞ (하 with 아래아) — 가장 흔함. 'ᄒᆞ다', 'ᄒᆞ나니라', 'ᄒᆞ더라' 등
+  - ᄂᆞ (나 with 아래아)
+  - ᄃᆞ (다 with 아래아)
+  - ᄉᆞ (사 with 아래아)
+  - ᄆᆞ, ᄋᆞ, ᄎᆞ, ᄆᆞ, ᄒᆞ + 받침 ᆯ/ᆫ 등 자모 결합형
+  - ᇫ (반치음, 받침)
+  - ᄫ (순경음 비읍)
+- **구결자** 후보 (`reference/구결자.md` 참조):
+  - 厓(애), 隱(은/는), 古(고), 爲(하/하야), 也(야/이/라), 阿(아), 那(나), 隷·豆(다) 등 약식화 form
+
+판독 시 **컨텍스트가 결정적 단서**:
+- `'이라(?)'` 형태 → 옛한글 또는 구결 토 표시
+- `信從[信?야]` 형태 → 訓借 설명, 구결자
+- `'仁(이)鮮ㅗㄴ소(하니라)'` → 구결 例示
+
+### 3. 매핑 테이블 작성
+
+```bash
+python -m gugyeol_decode.build_mapping <컨텍스트경로> <PDF경로> [--cache <캐시JSON>]
+```
+
+또는 사용자/Claude가 `mapping.json`을 직접 작성:
+
+```json
+{
+  "font_aliases": {
+    "*¸íÁ¶": "*명조",
+    "TT7064o00": "한양신명조"
+  },
+  "mappings": {
+    "*명조|F6D0": {"type": "kugyeol", "value": "厓", "modern": "ㄱ", "note": "下 #2 의(ᄋᆞ) 마크"},
+    "TT7064o00|F537": {"type": "old_hangul", "value": "ᄒᆞ", "modern": "하", "note": "verb stem 하-"},
+    "TT7064o00|E283": {"type": "old_hangul", "value": "ᄒᆞ", "modern": "하"}
+  },
+  "verified_by": "사용자명",
+  "verified_at": "2026-05-09",
+  "pdf_metadata": {"title": "...", "isbn": "..."}
+}
+```
+
+`type`은 `old_hangul` / `kugyeol` / `other` 중 하나.
+`value`는 가능하면 **표준 Unicode** (Hangul Jamo U+1100-U+11FF + ㆍ U+11A2 결합) 사용.
+`modern`은 현대 한글 정규화 결과.
+
+### 4. 본문 정규화 적용
+
+```bash
+python -m gugyeol_decode.apply_mapping <PDF경로> <mapping.json> -o <output.md>
+```
+
+PDF를 다시 추출하면서 매핑 테이블에 따라 PUA 글자를 옛한글 또는 구결자로 치환. 결과는 깔끔한 markdown.
+
+### 5. 저장 + 공유
+
+- `<vault>/references/journals/<논문>_PUA정규화.md` — 정규화 후 본문
+- `<vault>/references/_pua_cache/<font_id>.json` — 폰트별 매핑 캐시
+- 위키·원고에서 인용할 때는 정규화 본문에서 직접 옮김
+
+## Reference Files
+
+- `reference/구결자.md` — 한국 古典 구결자 표준 form 표
+- `reference/옛한글.md` — 옛한글 자모·결합 규칙·Unicode 매핑
+- `examples/최식2011/` — 작업 예시 (이 PDF로 작업한 결과 보존)
+
+## Done when
+
+- 모든 PUA 글자 (codepoint, font) 조합이 매핑 테이블에 등록됨
+- 의도적으로 미식별로 남긴 글자는 `type: "unknown"` + 사유 기재
+- 정규화된 본문이 검증 가능한 형태로 저장됨
+- 위키·논문에 인용할 때 PUA 손실 없이 옮길 수 있음
+
+## Failure modes
+
+- **폰트 임베딩 안 됨**: 일부 PDF는 PUA 글자에 폰트가 없거나 mojibake 폰트명만 남는다 → 폰트별 클러스터링 불가, 시각 판독에만 의존
+- **OCR 기반 PDF**: 텍스트 레이어가 OCR이라면 PUA 글자가 부정확하게 인식되어 있을 수 있음 → 원본 이미지 직접 OCR 권장
+- **희귀 구결자**: 시각 판독으로도 식별 불가능한 약식 form은 `unknown`으로 두고 사용자 후속 검토 의뢰
+- **동일 codepoint 다른 글자**: 같은 폰트 다른 글리프가 우연히 같은 PUA 부호점이면 매핑 충돌. 폰트 서브셋 PDF에서 가끔 발생
+- **합자 구결자(合字)**: 兯(U+516F, 한 = 隹+隱) 같이 두 글자가 시각적으로 합쳐진 글리프는 표준 Unicode CJK Unified Ideographs/Extensions에 있고 PUA에 없다. **본 스킬의 PUA 스캔 범위(U+E000-F8FF)에 미포함**. 한양 PUA의 한계. PDF 본문에 합자 구결이 등장하면 일반 漢字로 추출되어 사용자 수동 식별·매핑 필요. 자세한 처리 방안은 [reference/구결자.md](reference/구결자.md#합자-구결자) 참조
+
+## Notes for sharing
+
+- 매핑 테이블 (`mapping.json`)은 폰트 ID 기준이므로 다른 PDF에 재사용 가능
+- 표준 폰트(한양신명조 등) 캐시가 충분히 쌓이면 새 PDF는 자동 매핑 비율 높아짐
+- Unicode 6.0+에서 옛한글 자모는 표준화되었으므로 매핑 결과는 modern 도구에서 정상 렌더링됨
+- 구결자는 일부만 Unicode 표준화 (Hanja 영역). 표준 부호점이 없으면 `value`에 약식 form 또는 음가 표기 사용
