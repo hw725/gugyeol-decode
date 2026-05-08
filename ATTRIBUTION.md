@@ -49,18 +49,18 @@
 본 스킬을 학술·실용 작업에 사용하여 결과를 발표할 때는 다음 형식으로 인용 권장:
 
 ```
-PUA Decode skill (2026), gugyeol-decode v1.
+gugyeol-decode (2026)
 Built upon kiwiyou/hypua (Unlicense) and AKS 한국역사정보통합시스템.
-https://github.com/<your-account>/gugyeol-decode
+https://github.com/hw725/gugyeol-decode
 ```
 
 또는 BibTeX:
 
 ```bibtex
 @misc{gugyeol-decode-2026,
-  title  = {gugyeol-decode: Korean PDF PUA Recovery Skill},
+  title  = {gugyeol-decode: Korean PDF kugyeol·old hangul recovery},
   year   = {2026},
   note   = {Built upon kiwiyou/hypua (Unlicense) and AKS 한국역사정보통합시스템},
-  url    = {https://github.com/<your-account>/gugyeol-decode}
+  url    = {https://github.com/hw725/gugyeol-decode}
 }
 ```

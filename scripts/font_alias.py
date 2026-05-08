@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-PUA Decode — 폰트 이름 mojibake 복원 유틸리티
+gugyeol-decode — 폰트 이름 mojibake 복원 유틸리티
 
 PyMuPDF가 추출하는 폰트 이름이 종종 cp949 → latin1 mojibake로 깨져서 나온다.
 예: '*ÇÑ¾ç½Å¸íÁ¶' → '*한양신명조'

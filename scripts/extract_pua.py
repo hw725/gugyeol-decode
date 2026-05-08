@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-PUA Decode — Step 1: PDF에서 PUA(Private Use Area) 글자 추출
+gugyeol-decode — Step 1: PDF에서 PUA(Private Use Area) 글자 추출
 
 PyMuPDF로 글리프 단위 추출하여 0xE000-0xF8FF 영역 글자를 모은다.
 각 (codepoint, font) 조합당 첫 등장 위치를 PNG로 잘라 저장 + 컨텍스트 라인.
@@ -173,7 +173,7 @@ def main() -> int:
     # 매핑 테이블 스켈레톤 생성 (AKS + hypua 매핑이 있으면 자동 채움)
     keys = sorted(found.keys())
     skeleton = {
-        "_doc": "PUA Decode mapping. hypua/AKS에서 자동 채운 항목은 verified=true. 나머지는 시각 판독 후 type/value/modern 입력.",
+        "_doc": "gugyeol-decode mapping. hypua/AKS에서 자동 채운 항목은 verified=true. 나머지는 시각 판독 후 type/value/modern 입력.",
         "_hypua_loaded": bool(hypua_table),
         "_aks_gukyul_loaded": bool(gukyul_cache),
         "_aks_oldhan_loaded": bool(oldhan_cache),

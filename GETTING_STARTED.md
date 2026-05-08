@@ -56,7 +56,7 @@
 #### 방법 A — Git 사용
 
 ```bash
-git clone https://github.com/<배포자>/gugyeol-decode.git
+git clone https://github.com/hw725/gugyeol-decode.git
 cd gugyeol-decode
 ```
 

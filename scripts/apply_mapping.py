@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-PUA Decode — Step 3: 매핑 테이블을 적용해 PDF 본문을 정규화
+gugyeol-decode — Step 3: 매핑 테이블을 적용해 PDF 본문을 정규화
 
 PDF를 다시 글리프 단위로 추출하면서, mapping.json에 정의된 PUA 글자를
 표준 Unicode (옛한글 자모 결합 / 구결자 모자 등)로 치환한다.
