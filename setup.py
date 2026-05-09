@@ -74,13 +74,46 @@ def print_status(status: dict[str, bool]) -> None:
         print(f"  {mark} {name}")
 
 
-def step_pymupdf() -> bool:
+def _pip_install(package: str) -> bool:
+    """pip install — 실패 시 --user 재시도."""
+    for args in ([package], ["--user", package]):
+        try:
+            rc = subprocess.call([sys.executable, "-m", "pip", "install", *args])
+            if rc == 0:
+                return True
+        except Exception:
+            pass
+    return False
+
+
+def step_pymupdf(auto: bool = True) -> bool:
     if check_pymupdf():
         print(colored("  ✓ 이미 설치됨", "green"))
         return True
-    print(colored("  ✗ 미설치. 다음 명령으로 설치:", "yellow"))
-    print(colored("    pip install pymupdf", "cyan"))
-    print(colored("    (또는 권한 문제 시: pip install --user pymupdf)", "cyan"))
+    if not auto:
+        print(colored("  ✗ 미설치. 수동 설치: pip install pymupdf", "yellow"))
+        return False
+    print(colored("  → pip install pymupdf 자동 실행", "cyan"))
+    if _pip_install("pymupdf") and check_pymupdf():
+        print(colored("  ✓ 설치 완료", "green"))
+        return True
+    print(colored("  ✗ 자동 설치 실패. 수동:  pip install pymupdf", "red"))
+    return False
+
+
+def step_python_hwpx(auto: bool = True) -> bool:
+    if check_python_hwpx():
+        print(colored("  ✓ 이미 설치됨", "green"))
+        return True
+    if not auto:
+        print(colored("  ℹ 미설치 (HWPX 처리 시에만 필요): pip install python-hwpx",
+                      "cyan"))
+        return False
+    print(colored("  → pip install python-hwpx 자동 실행 (HWPX 입력용)", "cyan"))
+    if _pip_install("python-hwpx") and check_python_hwpx():
+        print(colored("  ✓ 설치 완료", "green"))
+        return True
+    print(colored("  ⚠ python-hwpx 설치 실패 — HWPX 입력 시 다시 시도", "yellow"))
     return False
 
 
@@ -175,17 +208,14 @@ def main() -> int:
         print_status(check_status())
         return 0
 
-    print(colored("\n[1/4] PyMuPDF 확인 (PDF 입력용, 필수)", "cyan"))
+    print(colored("\n[1/4] PyMuPDF 확인 + 자동 설치 (PDF 입력용, 필수)", "cyan"))
     pymupdf_ok = step_pymupdf()
     if not pymupdf_ok:
         print(colored("\n→ pymupdf 설치 후 setup.py를 다시 실행하세요.", "yellow"))
         return 1
 
-    if check_python_hwpx():
-        print(colored("  ✓ python-hwpx도 설치됨 — HWPX/HWP 입력 가능", "green"))
-    else:
-        print(colored("  ℹ python-hwpx 미설치 — HWPX/HWP를 처리하려면:", "cyan"))
-        print(colored("      pip install python-hwpx", "cyan"))
+    print(colored("\n[1.5/4] python-hwpx 확인 + 자동 설치 (HWPX 입력용, 선택)", "cyan"))
+    step_python_hwpx()
 
     print(colored("\n[2/4] hypua 옛한글 매핑 (kiwiyou/hypua, Unlicense)", "cyan"))
     step_hypua()

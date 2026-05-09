@@ -43,89 +43,69 @@
 
 ---
 
-## 2. 설치 (Python 사용자라면 5분)
+## 2. 설치 — 한 줄
 
 ### 사전 준비
 
 - **Python 3.9 이상** (`python --version` 으로 확인)
 - **인터넷 연결** (1회 setup 시 매핑 데이터 다운로드)
-- (선택) Git — 저장소 clone용 (없으면 zip 다운로드)
 
-### Step 1. 다운로드
+### 원클릭 설치
 
-#### 방법 A — Git 사용
-
-```bash
-git clone https://github.com/hw725/gugyeol-decode.git
-cd gugyeol-decode
+**Windows (PowerShell)**:
+```powershell
+iwr -useb https://raw.githubusercontent.com/hw725/gugyeol-decode/master/install.ps1 | iex
 ```
 
-#### 방법 B — Git 없이 zip 다운로드
-
-GitHub repo 페이지에서 "Code" → "Download ZIP" → 적당한 폴더에 압축 풀기 → 그 폴더로 이동.
-
-### Step 2. 라이브러리 설치
-
-**필수** — PDF 처리:
+**macOS / Linux / WSL (bash)**:
 ```bash
-pip install pymupdf
+curl -fsSL https://raw.githubusercontent.com/hw725/gugyeol-decode/master/install.sh | bash
 ```
 
-**선택** — HWPX/HWP 처리 (한컴 한글 문서):
+자동 처리되는 것:
+1. `~/.claude/skills/gugyeol-decode/`에 git clone
+2. `pymupdf` (필수) + `python-hwpx` (선택) pip install — 실패 시 `--user` 자동 재시도
+3. **hypua 옛한글 매핑** (kiwiyou/hypua, public domain, 5660건) 다운로드
+4. **AKS 구결자 매핑** (한국학중앙연구원, 255건) 다운로드
+5. **AKS 옛한글 카테고리** (5299건) 다운로드
+6. **Unihan K source 한자** (합자 구결 후보 풀, 10,919건, 약 8MB) 다운로드
+
+**소요 시간**: 약 5-10분 (대부분 AKS 옛한글 lookup). 한 번만 받아두면 끝.
+
+### 수동 설치 (원클릭이 막힌 경우)
+
 ```bash
-pip install python-hwpx
+git clone https://github.com/hw725/gugyeol-decode.git ~/.claude/skills/gugyeol-decode
+cd ~/.claude/skills/gugyeol-decode
+python setup.py            # 의존성 + 데이터 자동 처리
 ```
 
-권한 문제 시: `pip install --user pymupdf python-hwpx`
+### 옵션
 
-가상환경 권장 (선택):
 ```bash
-python -m venv venv
-source venv/bin/activate     # Windows: venv\Scripts\activate
-pip install pymupdf python-hwpx
+python setup.py --skip-unihan    # 합자 구결 데이터 제외 (3.8MB → 0.6MB)
+python setup.py --check          # 설치 상태만 확인
 ```
 
-### Step 3. 데이터 setup — **단 한 번 명령**
+### 설치 확인
 
 ```bash
-python setup.py
-```
-
-이 한 명령이 다음을 자동으로 합니다:
-
-1. PyMuPDF 설치 확인
-2. **hypua 옛한글 매핑** 다운로드 (kiwiyou/hypua, public domain, 5660건)
-3. **AKS 구결자 매핑** 다운로드 (한국학중앙연구원, 255건)
-4. **AKS 옛한글 카테고리** 다운로드 (5299건)
-5. **Unihan K source 한자** 다운로드 (합자 구결 후보 풀, 10,919건, 약 8MB)
-
-**소요 시간**: 약 5-10분 (대부분 AKS 옛한글 lookup이 5분 정도). 한 번만 받아두면 끝.
-
-용량 절약하려면 합자 구결 데이터 빼기:
-```bash
-python setup.py --skip-unihan    # 3.8MB → 0.6MB
-```
-
-### Step 4. 설치 확인
-
-```bash
-python setup.py --check
+python ~/.claude/skills/gugyeol-decode/setup.py --check
 ```
 
 다음과 같이 모두 ✓ 표시되면 OK:
 
 ```
 현재 설치 상태:
-  ✓ PyMuPDF (fitz)
+  ✓ PyMuPDF (fitz) — PDF 처리
+  ✓ python-hwpx — HWPX 처리 (선택)
   ✓ hypua 옛한글 매핑 (5660건)
   ✓ AKS 구결자 매핑 (255건)
   ✓ AKS 옛한글 카테고리 (5299건)
   ✓ Unihan K source 한자 (10919건, 선택)
 ```
 
-### (선택) Claude Code 사용자라면
-
-본 도구를 `~/.claude/skills/gugyeol-decode/`에 두면 Claude Code 세션에서 자연어로 호출 가능:
+### Claude Code 사용자 — 자연어 호출
 
 > "이 PDF에서 옛한글이 깨져 나와 — 풀어줘"
 

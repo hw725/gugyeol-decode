@@ -9,18 +9,44 @@
 
 본 도구는 표준 매핑 데이터를 활용해 이들을 정상 Unicode로 복원하고, 본문 전체를 깨끗한 markdown으로 출력합니다.
 
-## 빠른 시작
+## 원클릭 설치
 
-```bash
-git clone https://github.com/hw725/gugyeol-decode.git
-cd gugyeol-decode
-pip install pymupdf                        # 필수 (PDF 처리)
-pip install python-hwpx                    # 선택 (HWPX/HWP 처리)
-python setup.py                            # 1회 setup (5-10분, 매핑 데이터 다운로드)
-python scripts/decode.py <파일경로>         # PDF/HWPX/HWP → <파일>.normalized.md
+**Windows (PowerShell)**:
+```powershell
+iwr -useb https://raw.githubusercontent.com/hw725/gugyeol-decode/master/install.ps1 | iex
 ```
 
-**처음 사용하시면 → [GETTING_STARTED.md](GETTING_STARTED.md)** (설치·사용·문제 해결 풀가이드)
+**macOS / Linux / WSL (bash)**:
+```bash
+curl -fsSL https://raw.githubusercontent.com/hw725/gugyeol-decode/master/install.sh | bash
+```
+
+이 한 줄이 자동으로:
+1. `~/.claude/skills/gugyeol-decode/`에 git clone
+2. `pymupdf` (필수) + `python-hwpx` (선택) 자동 pip install
+3. hypua + AKS 매핑 데이터 다운로드 (5-10분)
+
+## 사용 방법 (설치 후)
+
+### A. Claude Code 사용자 — 자연어 호출
+
+설치만 하면 끝. Claude Code가 SKILL.md description을 읽고 자동 활성화:
+
+> "이 PDF에서 옛한글이 깨져 나와 — 풀어줘"
+> "구결 풀어줘"
+> "한컴 HWPX의 ᄒᆞ가 PUA로 안 풀려"
+
+Claude가 자동으로 본 스킬을 호출하여 결과 markdown을 만들어 줍니다.
+
+### B. CLI 사용자 — Python 한 줄
+
+```bash
+python ~/.claude/skills/gugyeol-decode/scripts/decode.py <파일.pdf|.hwpx|.hwp>
+```
+
+→ `<파일>.normalized.md` 자동 생성.
+
+**자세한 사용법** → [GETTING_STARTED.md](GETTING_STARTED.md)
 
 ## 주요 기능
 
