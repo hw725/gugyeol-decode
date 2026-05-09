@@ -1,6 +1,6 @@
 # Getting Started — gugyeol-decode 시작하기
 
-> **이게 뭐죠?**: 한국 古典·국어학 PDF에서 글자가 깨져 나올 때 이를 자동으로 복원하는 명령행 도구입니다.
+> **이게 뭐죠?**: 한국 古典·국어학 **PDF/HWPX/HWP** 문서에서 글자가 깨져 나올 때 이를 자동으로 복원하는 명령행 도구입니다.
 >
 > Python만 있으면 누구나 사용 가능. Claude Code 같은 별도 도구 없이도 됩니다.
 
@@ -64,19 +64,25 @@ cd gugyeol-decode
 
 GitHub repo 페이지에서 "Code" → "Download ZIP" → 적당한 폴더에 압축 풀기 → 그 폴더로 이동.
 
-### Step 2. PyMuPDF 설치 (필수 1개 라이브러리)
+### Step 2. 라이브러리 설치
 
+**필수** — PDF 처리:
 ```bash
 pip install pymupdf
 ```
 
-권한 문제 시: `pip install --user pymupdf`
+**선택** — HWPX/HWP 처리 (한컴 한글 문서):
+```bash
+pip install python-hwpx
+```
+
+권한 문제 시: `pip install --user pymupdf python-hwpx`
 
 가상환경 권장 (선택):
 ```bash
 python -m venv venv
 source venv/bin/activate     # Windows: venv\Scripts\activate
-pip install pymupdf
+pip install pymupdf python-hwpx
 ```
 
 ### Step 3. 데이터 setup — **단 한 번 명령**
@@ -131,20 +137,25 @@ Claude가 자동으로 본 스킬을 활성화하여 워크플로 수행. **Clau
 
 ### 시나리오
 
-`~/Downloads/논문.pdf` — 구결자·옛한글이 등장하는 한국 학술 논문
+- `~/Downloads/논문.pdf` — 구결자·옛한글이 등장하는 한국 학술 PDF
+- `~/Downloads/원고.hwpx` — 옛한글 PUA가 들어있는 한컴 한글 문서
+- `~/Downloads/원고.hwp` — 구버전 한컴 한글 (자동 변환)
 
-### 한 명령으로 끝
+### 한 명령으로 끝 — 입력 확장자만 다르고 사용법 동일
 
 ```bash
-python scripts/decode.py ~/Downloads/논문.pdf
+python scripts/decode.py ~/Downloads/논문.pdf       # PDF
+python scripts/decode.py ~/Downloads/원고.hwpx      # HWPX
+python scripts/decode.py ~/Downloads/원고.hwp       # HWP (자동 변환)
 ```
 
 이 명령이 자동으로:
-1. PDF에서 모든 PUA 글자 식별
-2. hypua + AKS 캐시로 자동 매핑 (대부분 100%)
-3. PDF **전체 텍스트 추출** + PUA를 표준 Unicode로 치환
-4. 깨끗한 markdown으로 저장 → `~/Downloads/논문.normalized.md`
-5. 중간 파일 자동 삭제
+1. 입력 확장자 자동 감지
+2. PDF는 PyMuPDF 글리프 추출, HWPX는 python-hwpx TextExtractor 사용
+3. hypua + AKS 캐시로 자동 매핑 (대부분 100%)
+4. 본문 전체에 PUA → 표준 Unicode 치환
+5. 깨끗한 markdown으로 저장 → `<원본>.normalized.md`
+6. 중간 파일 자동 삭제 (PDF만)
 
 ### 출력 예시
 

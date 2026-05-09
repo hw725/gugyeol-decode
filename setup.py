@@ -48,9 +48,18 @@ def check_pymupdf() -> bool:
         return False
 
 
+def check_python_hwpx() -> bool:
+    try:
+        import hwpx  # noqa
+        return True
+    except ImportError:
+        return False
+
+
 def check_status() -> dict[str, bool]:
     return {
-        "PyMuPDF (fitz)": check_pymupdf(),
+        "PyMuPDF (fitz) — PDF 처리": check_pymupdf(),
+        "python-hwpx — HWPX 처리 (선택)": check_python_hwpx(),
         "hypua 옛한글 매핑 (5660건)": HYPUA_PATH.exists(),
         "AKS 구결자 매핑 (255건)": AKS_GUKYUL_PATH.exists(),
         "AKS 옛한글 카테고리 (5299건)": AKS_OLDHAN_PATH.exists(),
@@ -166,11 +175,17 @@ def main() -> int:
         print_status(check_status())
         return 0
 
-    print(colored("\n[1/4] PyMuPDF 확인", "cyan"))
+    print(colored("\n[1/4] PyMuPDF 확인 (PDF 입력용, 필수)", "cyan"))
     pymupdf_ok = step_pymupdf()
     if not pymupdf_ok:
         print(colored("\n→ pymupdf 설치 후 setup.py를 다시 실행하세요.", "yellow"))
         return 1
+
+    if check_python_hwpx():
+        print(colored("  ✓ python-hwpx도 설치됨 — HWPX/HWP 입력 가능", "green"))
+    else:
+        print(colored("  ℹ python-hwpx 미설치 — HWPX/HWP를 처리하려면:", "cyan"))
+        print(colored("      pip install python-hwpx", "cyan"))
 
     print(colored("\n[2/4] hypua 옛한글 매핑 (kiwiyou/hypua, Unlicense)", "cyan"))
     step_hypua()
@@ -190,7 +205,8 @@ def main() -> int:
     print_status(check_status())
 
     print(colored("\n다음 단계:", "bold"))
-    print(colored("  python scripts/extract_pua.py <PDF경로>", "cyan"))
+    print(colored("  python scripts/decode.py <파일경로>     # PDF/HWPX/HWP 자동 분기",
+                  "cyan"))
     print(colored("\n또는 GETTING_STARTED.md를 읽어보세요.", "bold"))
     return 0
 

@@ -1,6 +1,6 @@
 ---
 name: gugyeol-decode
-description: Decode Korean academic PDFs by recovering kugyeol characters (구결자, 厓·古·爲·匕·兯 abbreviations) and old hangul (옛한글, ᄒᆞ·ᇫ etc.) that PDF extractors render as broken (cid:N) marks. Covers PUA (한양 PUA) and standard Unicode CJK 합자 구결. Trigger on "구결 풀어줘", "옛한글 복원", "PUA 풀어줘", "한국 학술 PDF 깨짐", "(cid:N) 처리".
+description: Decode Korean academic PDFs and HWPX/HWP documents by recovering kugyeol characters (구결자, 厓·古·爲·匕·兯 abbreviations) and old hangul (옛한글, ᄒᆞ·ᇫ etc.) that extractors render as broken (cid:N) marks or PUA codepoints. Covers 한양 PUA + AKS standard mappings + standard Unicode CJK 합자 구결. Trigger on "구결 풀어줘", "옛한글 복원", "PUA 풀어줘", "한국 학술 PDF 깨짐", "HWPX 옛한글 안 풀려", "(cid:N) 처리".
 license: MIT
 metadata:
   category: documents
@@ -8,21 +8,20 @@ metadata:
   phase: v1
 ---
 
-# gugyeol-decode (구결자·옛한글 PDF 복원)
+# gugyeol-decode (구결자·옛한글 PDF/HWPX 복원)
 
 ## What this skill does
 
-한국 인문학·고전·국어학 PDF에는 **옛한글**(ᄒᆞ나니라의 ᄒᆞ에 해당하는 아래아 글자, ㅿ 반치음, ㅸ 순경음 비읍 등)과 **구결자**(口訣字 — 厓 → ㄱ-shape, 隱 → ㄴ-shape, 爲 → ㅎ-form 등 漢字를 약식화한 韓國式 토 표지)가 빈번히 등장한다. 이들은 표준 Unicode 부호점이 부여되지 않아 폰트마다 **PUA(Private Use Area, U+E000-F8FF)에 임의 매핑**되어 있다.
+한국 인문학·고전·국어학 문서에는 **옛한글**(ᄒᆞ나니라의 ᄒᆞ에 해당하는 아래아 글자, ㅿ 반치음, ㅸ 순경음 비읍 등)과 **구결자**(口訣字 — 厓 → ㄱ-shape, 隱 → ㄴ-shape, 爲 → ㅎ-form 등 漢字를 약식화한 韓國式 토 표지)가 빈번히 등장한다. 이들은 표준 Unicode 부호점이 부여되지 않아 폰트·문서 포맷마다 **PUA(Private Use Area, U+E000-F8FF)에 임의 매핑**되어 있다.
 
-`pdfplumber`/`pdftotext` 같은 일반 PDF 추출 도구는 PUA 글자를 `(cid:N)` 또는 빈칸으로 떨어뜨리고, 결과 텍스트를 그대로 위키·논문·DB에 옮기면 **원전과 단절된 데이터**가 된다.
+- **학술 PDF**: 출판사가 폰트별로 PUA 매핑 → `pdfplumber`/`pdftotext`가 `(cid:N)` 또는 빈칸으로 떨어뜨림
+- **HWPX/HWP**: 한컴 한글이 한양 PUA로 옛한글 표기 → `python-hwpx` TextExtractor가 PUA codepoint 그대로 통과시킴
 
-본 스킬은:
+본 스킬은 입력 포맷을 자동 감지하여:
 
-1. PDF에서 모든 PUA 글자의 (codepoint, font, 위치, 컨텍스트)를 자동 추출
-2. 글자별 첫 등장 위치를 고해상도 PNG로 잘라 저장
-3. Claude(나)의 멀티모달 시각 판독 + 폰트 단서로 옛한글/구결자/기타 분류
-4. 사용자 검토 후 **PUA → modern hangul 정규화 매핑 테이블**(JSON) 생성
-5. 같은 폰트 PDF는 매핑 재사용, 점진적으로 폰트별 캐시 축적
+- **PDF 경로**: PUA 글자별 (codepoint, font, 위치, 컨텍스트) 추출 → hypua + AKS 자동 매핑 → 본문 치환
+- **HWPX 경로**: python-hwpx로 텍스트 추출 → codepoint 단독 룩업(한컴 PUA 표준) → 본문 치환
+- **HWP 경로**: HWPX 자동 변환(hwpx 스킬 활용) → HWPX 흐름
 
 ## When to use
 
