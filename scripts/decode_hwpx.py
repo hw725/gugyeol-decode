@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import unicodedata
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -161,6 +162,8 @@ def main() -> int:
                         help="출력 markdown 경로 (기본: <입력>.normalized.md)")
     parser.add_argument("--mode", choices=["value", "modern", "both"],
                         default="both", help="치환 방식")
+    parser.add_argument("--no-normalize", action="store_true",
+                        help="NFC 정규화 건너뛰기 (기본은 적용)")
     args = parser.parse_args()
 
     src = args.input.resolve()
@@ -183,6 +186,21 @@ def main() -> int:
     print(f"[2/2] PUA 매핑 적용")
     lookup = build_codepoint_lookup()
     normalized, unmapped = normalize_text(raw, lookup, mode=args.mode)
+
+    # NFC 정규화: CJK Compatibility Ideographs → 표준 한자 (canonical equivalence만, 안전)
+    if not args.no_normalize:
+        compat_chars = [c for c in normalized if 0xF900 <= ord(c) <= 0xFAFF]
+        if compat_chars:
+            unique_compat = len(set(compat_chars))
+            after = unicodedata.normalize("NFC", normalized)
+            remain = sum(1 for c in after if 0xF900 <= ord(c) <= 0xFAFF)
+            converted = len(compat_chars) - remain
+            print(f"  NFC 정규화: CJK Compatibility {unique_compat}종, "
+                  f"{len(compat_chars)}회 → {converted}회 표준 한자 변환"
+                  + (f" ({remain}회 잔존)" if remain else ""))
+            normalized = after
+        else:
+            normalized = unicodedata.normalize("NFC", normalized)
 
     out.write_text(normalized, encoding="utf-8")
 

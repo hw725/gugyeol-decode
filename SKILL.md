@@ -23,6 +23,11 @@ metadata:
 - **HWPX 경로**: python-hwpx로 텍스트 추출 → codepoint 단독 룩업(한컴 PUA 표준) → 본문 치환
 - **HWP 경로**: HWPX 자동 변환(hwpx 스킬 활용) → HWPX 흐름
 
+추가로 모든 경로에서 자동 적용:
+
+- **PUA 폰트 무시 fallback**: 같은 codepoint이지만 다른 폰트로 등장한 PUA가 있을 경우(예: U+F537 = ᄒᆞ가 본문 폰트와 강조 폰트에서 동시 등장) 첫 매핑을 fallback으로 적용. 이전 버전의 잔존 PUA 누락 케이스 해소.
+- **NFC 정규화**: CJK Compatibility Ideographs(U+F900-FAFF)가 정규 분해를 가진 경우 표준 CJK Unified Ideographs로 자동 변환(예: 讀 U+F95A → 讀 U+8B80, 寧 U+F95F → 寧 U+5BE7). NFC는 canonical equivalence만 처리하므로 학술 텍스트의 의도된 표기를 건드리지 않는다. 의도적으로 끄려면 `--no-normalize` 사용. NFKC를 사용하지 않는 이유는 halfwidth/fullwidth 변환 등 부수 효과로 학술 텍스트(예: 한문 문장부호, 일본어 인용)에 의도치 않은 영향을 줄 수 있기 때문.
+
 ## When to use
 
 - "이 논문 PDF에서 옛한글이 깨져 나와"
@@ -71,7 +76,7 @@ curl -fsSL https://raw.githubusercontent.com/hw725/gugyeol-decode/master/install
 
 ## Outputs
 
-- **`<입력>.normalized.md`** — 본문 전체에 PUA → 표준 Unicode 치환 완료된 markdown (모든 입력 공통)
+- **`<입력>.normalized.md`** — 본문 전체에 PUA → 표준 Unicode 치환 + NFC 정규화 완료된 markdown (모든 입력 공통)
 - (PDF 한정 중간 산출물 — `--keep-intermediate` 시):
   - `_pua_<stem>/U<HEX>_p<페이지>_<폰트>.png` — PUA 글자별 컨텍스트 PNG
   - `_pua_<stem>/_contexts.txt` — 각 PUA의 등장 페이지·폰트·전후 라인
