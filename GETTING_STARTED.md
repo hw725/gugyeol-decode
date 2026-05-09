@@ -134,8 +134,10 @@ python scripts/decode.py ~/Downloads/원고.hwp       # HWP (자동 변환)
 2. PDF는 PyMuPDF 글리프 추출, HWPX는 python-hwpx TextExtractor 사용
 3. hypua + AKS 캐시로 자동 매핑 (대부분 100%)
 4. 본문 전체에 PUA → 표준 Unicode 치환
-5. 깨끗한 markdown으로 저장 → `<원본>.normalized.md`
-6. 중간 파일 자동 삭제 (PDF만)
+5. **2차 PUA sweep**: 글리프 단계 lookup이 놓친 잔존 PUA를 codepoint 단독 fallback으로 정리
+6. **NFC 정규화 자동 적용**: CJK Compatibility Ideographs (讀·寧·李 등) → 표준 한자
+7. 깨끗한 markdown으로 저장 → `<원본>.normalized.md`
+8. 중간 파일 자동 삭제 (PDF만)
 
 ### 출력 예시
 
@@ -147,6 +149,8 @@ hypua 자동 채움: 옛한글 26건 verified (PUA → IPF Unicode jamo)
 AKS 자동 채움: 구결자 6건 verified
 
 [2/2] PDF 전체 텍스트 추출 + PUA 치환
+  2차 PUA sweep (codepoint 단독): 10회 추가 매핑 적용 → 잔존 0
+  NFC 정규화: CJK Compatibility 22종, 192회 등장 → 192회 표준 한자로 변환
 저장: ~/Downloads/논문.normalized.md
   매핑 적용 글자 수: 32 종류
   미매핑 (occurrence): 0
@@ -172,7 +176,12 @@ python scripts/decode.py 논문.pdf --keep-intermediate
 
 # 합자 구결자 스캔 끄기
 python scripts/decode.py 논문.pdf --no-hapja
+
+# NFC 정규화 끄기 (원전 그대로 보존이 필요한 디버깅 케이스)
+python scripts/apply_mapping.py <pdf> <mapping.json> --no-normalize
 ```
+
+> NFC 정규화는 학술 텍스트에 안전한 canonical equivalence만 적용 (NFKC가 아님 — halfwidth/fullwidth 등 부수효과 회피). `--no-normalize`는 원본 PDF의 codepoint를 그대로 보존해야 하는 디버깅 작업에서만 사용 권장.
 
 ### 결과 확인
 
